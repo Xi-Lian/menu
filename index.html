@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>顾客点餐</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding-bottom: 120px;
+        }
+        
+        /* 图片展示区 */
+        .image-gallery {
+            background: white;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 8px;
+        }
+        
+        .image-gallery img {
+            width: 100%;
+            border-radius: 6px;
+            display: block;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .image-gallery img:active {
+            transform: scale(0.95);
+        }
+        
+        /* 图片放大灯箱 */
+        .lightbox {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 5000;
+            cursor: pointer;
+        }
+        
+        .lightbox.show {
+            display: flex;
+        }
+        
+        .lightbox img {
+            max-width: 95%;
+            max-height: 95vh;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 { font-size: 18px; margin-bottom: 3px; }
+        .header .subtitle { font-size: 12px; opacity: 0.9; }
+        
+        .menu-section { padding: 15px; }
+        
+        .section-title {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 10px;
+            padding-left: 10px;
+            border-left: 4px solid #ff6b6b;
+            font-weight: bold;
+        }
+        
+        .dish-list { background: white; border-radius: 10px; overflow: hidden; }
+        
+        .dish-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            flex-wrap: wrap;
+        }
+        
+        .dish-item:last-child { border-bottom: none; }
+        
+        .dish-name { 
+            flex: 1; 
+            font-size: 14px; 
+            color: #333; 
+            min-width: 200px;
+        }
+        
+        .dish-price { 
+            color: #ff6b6b; 
+            font-weight: bold; 
+            font-size: 14px;
+            margin-left: 15px;
+            min-width: 60px;
+            text-align: right;
+        }
+        
+        .price-shijia {
+            display: inline-block;
+            background: #fff3e0;
+            color: #ff9800;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 15px;
+        }
+        
+        .add-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 10px;
+        }
+        
+        /* 有括号的菜品额外输入 */
+        .dish-item.has-bracket {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .dish-item.has-bracket .dish-row {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .dish-item.has-bracket .dish-name {
+            flex: 1;
+            min-width: auto;
+        }
+        
+        .dish-item.has-bracket .input-row {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            margin-top: 8px;
+            padding-left: 10px;
+        }
+        
+        .dish-item.has-bracket .input-label {
+            font-size: 13px;
+            color: #666;
+            white-space: nowrap;
+            margin-right: 8px;
+        }
+        
+        .dish-item.has-bracket .spec-input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            max-width: 200px;
+        }
+        
+        .dish-item.has-bracket .input-hint {
+            font-size: 11px;
+            color: #999;
+            margin-left: 5px;
+        }
+        
+        /* 购物车栏 */
+        .cart-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 12px 20px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 1000;
+        }
+        
+        .cart-info { flex: 1; }
+        .cart-count { font-size: 14px; color: #666; }
+        .cart-count .num { color: #ff6b6b; font-weight: bold; }
+        .cart-total { font-size: 12px; color: #999; margin-top: 2px; }
+        .cart-total .amount { color: #ff6b6b; font-weight: bold; font-size: 16px; }
+        
+        .generate-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .generate-btn:disabled { background: #ccc; cursor: not-allowed; }
+        
+        /* 购物车列表 */
+        .cart-list {
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+        
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 12px;
+        }
+        
+        .cart-item-name { flex: 1; color: #666; }
+        .cart-item-right { display: flex; align-items: center; gap: 8px; }
+        .cart-item-price { color: #ff6b6b; }
+        .remove-btn { color: #999; font-size: 14px; cursor: pointer; padding: 0 4px; }
+        .empty-tip { color: #bbb; font-size: 12px; margin-top: 5px; }
+        
+        /* 数量输入弹窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .modal-overlay.show { display: flex; }
+        
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            width: 290px;
+            text-align: center;
+        }
+        
+        .modal-title { font-size: 14px; color: #666; margin-bottom: 8px; }
+        .modal-dish-name { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 20px; }
+        
+        .quantity-input {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .qty-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid #ff6b6b;
+            background: white;
+            color: #ff6b6b;
+            font-size: 22px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .qty-btn:active { background: #ff6b6b; color: white; }
+        
+        .qty-display {
+            width: 70px;
+            height: 44px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .modal-btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 25px;
+            border: none;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .modal-btn.confirm { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); color: white; }
+        .modal-btn.cancel { background: #f5f5f5; color: #999; margin-top: 10px; }
+        
+        /* 订单截图弹窗 */
+        .order-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .order-modal.show { display: flex; }
+        
+        .order-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            width: 290px;
+        }
+        
+        .order-header { text-align: center; margin-bottom: 15px; }
+        .order-header h3 { font-size: 18px; color: #333; }
+        .order-header .time { font-size: 12px; color: #999; margin-top: 5px; }
+        .order-divider { border-top: 2px dashed #ddd; margin: 15px 0; }
+        
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        
+        .order-item-name { color: #333; flex: 1; }
+        .order-item-right { display: flex; align-items: center; gap: 15px; }
+        .order-item-qty { color: #666; }
+        .order-item-price { color: #ff6b6b; font-weight: bold; min-width: 50px; text-align: right; }
+        
+        .order-footer {
+            border-top: 2px solid #ff6b6b;
+            margin-top: 15px;
+            padding-top: 15px;
+            text-align: center;
+        }
+        
+        .order-total { font-size: 26px; font-weight: bold; color: #ff6b6b; }
+        .order-tips { font-size: 12px; color: #999; margin-top: 10px; }
+        .close-order { background: white; color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <!-- 图片展示区 -->
+    <div class="image-gallery">
+        <img src="微信图片_20260501220214.jpg" alt="菜单1" onclick="openLightbox(this.src)">
+        <img src="微信图片_20260501220241.png" alt="菜单2" onclick="openLightbox(this.src)">
+        <img src="微信图片_20260501220247.png" alt="菜单3" onclick="openLightbox(this.src)">
+        <img src="微信图片_20260501220258.png" alt="菜单4" onclick="openLightbox(this.src)">
+        <img src="微信图片_20260501220302.png" alt="菜单5" onclick="openLightbox(this.src)">
+    </div>
+    
+    <!-- 图片放大灯箱 -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <img id="lightboxImg" src="" alt="放大图片">
+    </div>
+    
+    <div class="header">
+        <h1>点餐</h1>
+        <div class="subtitle">请选择您想吃的菜品</div>
+    </div>
+    
+    <div class="menu-section">
+        <!-- 一、特色菜 -->
+        <div class="section-title">一、特色菜</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">红烧腩排</span><span class="dish-price">88元</span><button class="add-btn" data-name="红烧腩排" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">地斩头焖鸭（半只）</span><span class="dish-price">98元</span><button class="add-btn" data-name="地斩头焖鸭（半只）" data-price="98">+</button></div>
+            <div class="dish-item"><span class="dish-name">胡椒鸭（半只）</span><span class="dish-price">98元</span><button class="add-btn" data-name="胡椒鸭（半只）" data-price="98">+</button></div>
+            <div class="dish-item"><span class="dish-name">胡椒味蒸筒骨</span><span class="dish-price">88元</span><button class="add-btn" data-name="胡椒味蒸筒骨" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">酱香牛尾</span><span class="dish-price">78元</span><button class="add-btn" data-name="酱香牛尾" data-price="78">+</button></div>
+            <div class="dish-item"><span class="dish-name">牛腩煲</span><span class="dish-price">68元</span><button class="add-btn" data-name="牛腩煲" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">美贝焗牛展</span><span class="dish-price">88元</span><button class="add-btn" data-name="美贝焗牛展" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">红焖海参</span><span class="dish-price">88元</span><button class="add-btn" data-name="红焖海参" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">水鱼焖鸡</span><span class="dish-price">238元</span><button class="add-btn" data-name="水鱼焖鸡" data-price="238">+</button></div>
+            <div class="dish-item"><span class="dish-name">砂锅沙姜鸡</span><span class="dish-price">118元</span><button class="add-btn" data-name="砂锅沙姜鸡" data-price="118">+</button></div>
+            <div class="dish-item"><span class="dish-name">红葱头白切鸡</span><span class="dish-price">118元</span><button class="add-btn" data-name="红葱头白切鸡" data-price="118">+</button></div>
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">荷叶蒸/姜汁蒸/红烧甲鱼</span>
+                    <span class="dish-price">138元</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">请填写：</span>
+                    <input type="text" class="spec-input" placeholder="荷叶蒸/姜汁蒸/红烧">
+                    <span class="input-hint">选一种</span>
+                    <button class="add-btn" data-name="甲鱼" data-has-spec="true" data-price="138" style="margin-left:10px">+</button>
+                </div>
+            </div>
+            <div class="dish-item"><span class="dish-name">砂锅鱼腩</span><span class="dish-price">48元</span><button class="add-btn" data-name="砂锅鱼腩" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">白切沙姜猪肚</span><span class="dish-price">88元</span><button class="add-btn" data-name="白切沙姜猪肚" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">南乳蒜米焖猪脚</span><span class="dish-price">78元</span><button class="add-btn" data-name="南乳蒜米焖猪脚" data-price="78">+</button></div>
+            <div class="dish-item"><span class="dish-name">猪脚姜醋蛋</span><span class="dish-price">88元</span><button class="add-btn" data-name="猪脚姜醋蛋" data-price="88">+</button></div>
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">酸菜鱼/水煮鱼</span>
+                    <span class="dish-price">88元</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">请填写：</span>
+                    <input type="text" class="spec-input" placeholder="酸菜鱼/水煮鱼">
+                    <span class="input-hint">选一种</span>
+                    <button class="add-btn" data-name="鱼" data-has-spec="true" data-price="88" style="margin-left:10px">+</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 二、炒菜系列 -->
+        <div class="section-title" style="margin-top:20px">二、炒菜系列</div>
+        <div class="dish-list">
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">炒黄鳝（韭菜/苦麦）</span>
+                    <span class="price-shijia">时价</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">请填写：</span>
+                    <input type="text" class="spec-input" placeholder="韭菜/苦麦">
+                    <span class="input-hint">选一种</span>
+                    <button class="add-btn" data-name="炒黄鳝" data-has-spec="true" data-price="0" style="margin-left:10px">+</button>
+                </div>
+            </div>
+            <div class="dish-item"><span class="dish-name">炒/焗猪肠血</span><span class="dish-price">48元</span><button class="add-btn" data-name="炒/焗猪肠血" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">炒/白灼牛百叶</span><span class="dish-price">68元</span><button class="add-btn" data-name="炒/白灼牛百叶" data-price="68">+</button></div>
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">炒牛肉（咸菜/芹菜/藕带）</span>
+                    <span class="dish-price">68元</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">请填写：</span>
+                    <input type="text" class="spec-input" placeholder="咸菜/芹菜/藕带">
+                    <span class="input-hint">选一种</span>
+                    <button class="add-btn" data-name="炒牛肉" data-has-spec="true" data-price="68" style="margin-left:10px">+</button>
+                </div>
+            </div>
+            <div class="dish-item"><span class="dish-name">爆炒牛三脆</span><span class="dish-price">68元</span><button class="add-btn" data-name="爆炒牛三脆" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">爆炒姜丝牛肚肛</span><span class="dish-price">78元</span><button class="add-btn" data-name="爆炒姜丝牛肚肛" data-price="78">+</button></div>
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">炒猪俐（沙茶/咸菜/雪豆）</span>
+                    <span class="dish-price">58元</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">请填写：</span>
+                    <input type="text" class="spec-input" placeholder="沙茶/咸菜/雪豆">
+                    <span class="input-hint">选一种</span>
+                    <button class="add-btn" data-name="炒猪俐" data-has-spec="true" data-price="58" style="margin-left:10px">+</button>
+                </div>
+            </div>
+            <div class="dish-item"><span class="dish-name">姜葱河虾仔</span><span class="dish-price">48元</span><button class="add-btn" data-name="姜葱河虾仔" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">酸甜咕噜肉</span><span class="dish-price">58元</span><button class="add-btn" data-name="酸甜咕噜肉" data-price="58">+</button></div>
+            <div class="dish-item"><span class="dish-name">头皮炒蒜苗</span><span class="dish-price">48元</span><button class="add-btn" data-name="头皮炒蒜苗" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">菌菇小炒</span><span class="dish-price">38元</span><button class="add-btn" data-name="菌菇小炒" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">淮山木耳雪豆</span><span class="dish-price">38元</span><button class="add-btn" data-name="淮山木耳雪豆" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">芹菜木耳香干</span><span class="dish-price">38元</span><button class="add-btn" data-name="芹菜木耳香干" data-price="38">+</button></div>
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">炒山蕨（咸菜/荞头）</span>
+                    <span class="dish-price">38元</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">请填写：</span>
+                    <input type="text" class="spec-input" placeholder="咸菜/荞头">
+                    <span class="input-hint">选一种</span>
+                    <button class="add-btn" data-name="炒山蕨" data-has-spec="true" data-price="38" style="margin-left:10px">+</button>
+                </div>
+            </div>
+            <div class="dish-item"><span class="dish-name">炒狗爪豆</span><span class="dish-price">28元</span><button class="add-btn" data-name="炒狗爪豆" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">炒鲜笋</span><span class="dish-price">48元</span><button class="add-btn" data-name="炒鲜笋" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">清炒芦笋</span><span class="dish-price">38元</span><button class="add-btn" data-name="清炒芦笋" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">清炒青瓜</span><span class="dish-price">28元</span><button class="add-btn" data-name="清炒青瓜" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">豆豉鲮鱼焗苦瓜</span><span class="dish-price">48元</span><button class="add-btn" data-name="豆豉鲮鱼焗苦瓜" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">煎豆干</span><span class="dish-price">18元</span><button class="add-btn" data-name="煎豆干" data-price="18">+</button></div>
+            <div class="dish-item"><span class="dish-name">反沙芋头</span><span class="dish-price">28元</span><button class="add-btn" data-name="反沙芋头" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">菜脯煎蛋</span><span class="dish-price">28元</span><button class="add-btn" data-name="菜脯煎蛋" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">上汤时蔬</span><span class="dish-price">28元</span><button class="add-btn" data-name="上汤时蔬" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">青菜</span><span class="dish-price">18元</span><button class="add-btn" data-name="青菜" data-price="18">+</button></div>
+            <div class="dish-item"><span class="dish-name">金不换炒香螺</span><span class="dish-price">68元</span><button class="add-btn" data-name="金不换炒香螺" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">金不换炒油甲</span><span class="dish-price">48元</span><button class="add-btn" data-name="金不换炒油甲" data-price="48">+</button></div>
+        </div>
+        
+        <!-- 三、海鲜系列 -->
+        <div class="section-title" style="margin-top:20px">三、海鲜系列</div>
+        <div class="dish-list">
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">菜脯蒸/白灼山鳗</span>
+                    <span class="price-shijia">时价</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">请填写：</span>
+                    <input type="text" class="spec-input" placeholder="菜脯蒸/白灼">
+                    <span class="input-hint">选一种</span>
+                    <button class="add-btn" data-name="山鳗" data-has-spec="true" data-price="0" style="margin-left:10px">+</button>
+                </div>
+            </div>
+            <div class="dish-item"><span class="dish-name">姜葱炒蟹</span><span class="price-shijia">时价</span><button class="add-btn" data-name="姜葱炒蟹" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">粉丝蒸鲍鱼</span><span class="price-shijia">时价</span><button class="add-btn" data-name="粉丝蒸鲍鱼" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">鲍汁扣鲍鱼</span><span class="price-shijia">时价</span><button class="add-btn" data-name="鲍汁扣鲍鱼" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">白灼虾</span><span class="price-shijia">时价</span><button class="add-btn" data-name="白灼虾" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">椒盐虾</span><span class="price-shijia">时价</span><button class="add-btn" data-name="椒盐虾" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">蒜蓉开边虾</span><span class="price-shijia">时价</span><button class="add-btn" data-name="蒜蓉开边虾" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">盐焗/白灼花螺</span><span class="price-shijia">时价</span><button class="add-btn" data-name="盐焗/白灼花螺" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">粉丝蒸扇贝</span><span class="price-shijia">时价</span><button class="add-btn" data-name="粉丝蒸扇贝" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">蒜蓉蒸生蚝</span><span class="price-shijia">时价</span><button class="add-btn" data-name="蒜蓉蒸生蚝" data-price="0">+</button></div>
+            <div class="dish-item"><span class="dish-name">蒜香/香辣小龙虾</span><span class="price-shijia">时价</span><button class="add-btn" data-name="蒜香/香辣小龙虾" data-price="0">+</button></div>
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">清蒸鱼（多种鱼）</span>
+                    <span class="price-shijia">时价</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">请填写：</span>
+                    <input type="text" class="spec-input" placeholder="鲈鱼/多宝/桂花/斑鱼...">
+                    <span class="input-hint">选一种鱼</span>
+                    <button class="add-btn" data-name="清蒸鱼" data-has-spec="true" data-price="0" style="margin-left:10px">+</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 四、煲仔系列 -->
+        <div class="section-title" style="margin-top:20px">四、煲仔系列</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">酿豆腐</span><span class="dish-price">38元</span><button class="add-btn" data-name="酿豆腐" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">苦笋煲</span><span class="dish-price">38元</span><button class="add-btn" data-name="苦笋煲" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">香芋煲</span><span class="dish-price">38元</span><button class="add-btn" data-name="香芋煲" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">茄子煲</span><span class="dish-price">35元</span><button class="add-btn" data-name="茄子煲" data-price="35">+</button></div>
+            <div class="dish-item"><span class="dish-name">豆干煲</span><span class="dish-price">28元</span><button class="add-btn" data-name="豆干煲" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">杂菇煲</span><span class="dish-price">38元</span><button class="add-btn" data-name="杂菇煲" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">三鲜腐竹丝瓜煲（时令）</span><span class="dish-price">38元</span><button class="add-btn" data-name="三鲜腐竹丝瓜煲" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">早芋煲（时令）</span><span class="dish-price">38元</span><button class="add-btn" data-name="早芋煲" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">板栗排骨煲（时令）</span><span class="dish-price">58元</span><button class="add-btn" data-name="板栗排骨煲" data-price="58">+</button></div>
+            <div class="dish-item"><span class="dish-name">鲜莲子排骨煲（时令）</span><span class="dish-price">58元</span><button class="add-btn" data-name="鲜莲子排骨煲" data-price="58">+</button></div>
+            <div class="dish-item"><span class="dish-name">香芋芡实煲</span><span class="dish-price">38元</span><button class="add-btn" data-name="香芋芡实煲" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">海带黄豆煲</span><span class="dish-price">38元</span><button class="add-btn" data-name="海带黄豆煲" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">脚腕肉墨鱼煲</span><span class="dish-price">68元</span><button class="add-btn" data-name="脚腕肉墨鱼煲" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">花甲苦瓜煲</span><span class="dish-price">38元</span><button class="add-btn" data-name="花甲苦瓜煲" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">红腰豆蛋角煲</span><span class="dish-price">38元</span><button class="add-btn" data-name="红腰豆蛋角煲" data-price="38">+</button></div>
+        </div>
+        
+        <!-- 五、蒸菜系列 -->
+        <div class="section-title" style="margin-top:20px">五、蒸菜系列</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">豉汁蒸鱼腩</span><span class="dish-price">48元/份</span><button class="add-btn" data-name="豉汁蒸鱼腩" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">沙锅/剁椒蒸鱼头</span><span class="dish-price">88元/份</span><button class="add-btn" data-name="沙锅/剁椒蒸鱼头" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">味蒸香螺</span><span class="dish-price">68元/份</span><button class="add-btn" data-name="味蒸香螺" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">蒜蓉蒸丝瓜（时令）</span><span class="dish-price">38元/份</span><button class="add-btn" data-name="蒜蓉蒸丝瓜" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">淮山蒸红腰豆</span><span class="dish-price">38元/份</span><button class="add-btn" data-name="淮山蒸红腰豆" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">鲜腐竹蒸粉丝</span><span class="dish-price">28元/份</span><button class="add-btn" data-name="鲜腐竹蒸粉丝" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">味蒸花生米</span><span class="dish-price">28元/份</span><button class="add-btn" data-name="味蒸花生米" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">蒸河鱼干</span><span class="dish-price">48元/份</span><button class="add-btn" data-name="蒸河鱼干" data-price="48">+</button></div>
+        </div>
+        
+        <!-- 六、椒盐系列 -->
+        <div class="section-title" style="margin-top:20px">六、椒盐系列</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">椒盐牛蹄</span><span class="dish-price">68元</span><button class="add-btn" data-name="椒盐牛蹄" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">椒盐扇骨</span><span class="dish-price">68元</span><button class="add-btn" data-name="椒盐扇骨" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">椒盐河虾仔</span><span class="dish-price">48元</span><button class="add-btn" data-name="椒盐河虾仔" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">椒盐竹肠</span><span class="dish-price">48元</span><button class="add-btn" data-name="椒盐竹肠" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">椒盐鲜鱿</span><span class="dish-price">68元</span><button class="add-btn" data-name="椒盐鲜鱿" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">焗/椒盐牛排</span><span class="dish-price">68元</span><button class="add-btn" data-name="焗/椒盐牛排" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">椒盐鸡脆骨拼腰果</span><span class="dish-price">58元</span><button class="add-btn" data-name="椒盐鸡脆骨拼腰果" data-price="58">+</button></div>
+            <div class="dish-item"><span class="dish-name">盐焗猪肚</span><span class="dish-price">78元</span><button class="add-btn" data-name="盐焗猪肚" data-price="78">+</button></div>
+            <div class="dish-item"><span class="dish-name">蒜香脆骨</span><span class="dish-price">58元</span><button class="add-btn" data-name="蒜香脆骨" data-price="58">+</button></div>
+            <div class="dish-item"><span class="dish-name">蒜香排骨</span><span class="dish-price">68元</span><button class="add-btn" data-name="蒜香排骨" data-price="68">+</button></div>
+        </div>
+        
+        <!-- 七、汤类系列 -->
+        <div class="section-title" style="margin-top:20px">七、汤类系列</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">农家全猪汤升级版</span><span class="dish-price">138元</span><button class="add-btn" data-name="农家全猪汤升级版" data-price="138">+</button></div>
+            <div class="dish-item"><span class="dish-name">金樱膏药根猪脚汤</span><span class="dish-price">138元</span><button class="add-btn" data-name="金樱膏药根猪脚汤" data-price="138">+</button></div>
+            <div class="dish-item"><span class="dish-name">灵芝鸽子汤</span><span class="dish-price">138元</span><button class="add-btn" data-name="灵芝鸽子汤" data-price="138">+</button></div>
+            <div class="dish-item"><span class="dish-name">甲鱼鸡汤</span><span class="dish-price">238元</span><button class="add-btn" data-name="甲鱼鸡汤" data-price="238">+</button></div>
+            <div class="dish-item"><span class="dish-name">鸡骨草龙骨汤</span><span class="dish-price">88元</span><button class="add-btn" data-name="鸡骨草龙骨汤" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">沙参玉竹龙骨汤</span><span class="dish-price">88元</span><button class="add-btn" data-name="沙参玉竹龙骨汤" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">生地土茯龙骨汤</span><span class="dish-price">88元</span><button class="add-btn" data-name="生地土茯龙骨汤" data-price="88">+</button></div>
+            <div class="dish-item"><span class="dish-name">通气藤水鸭汤</span><span class="dish-price">88元</span><button class="add-btn" data-name="通气藤水鸭汤" data-price="88">+</button></div>
+        </div>
+        
+        <!-- 八、鸡/鸭类 -->
+        <div class="section-title" style="margin-top:20px">八、鸡/鸭类</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">白切鸡</span><span class="dish-price">118元</span><button class="add-btn" data-name="白切鸡" data-price="118">+</button></div>
+            <div class="dish-item"><span class="dish-name">姜茸鸡</span><span class="dish-price">138元</span><button class="add-btn" data-name="姜茸鸡" data-price="138">+</button></div>
+            <div class="dish-item"><span class="dish-name">毛桃鸡</span><span class="dish-price">138元</span><button class="add-btn" data-name="毛桃鸡" data-price="138">+</button></div>
+            <div class="dish-item"><span class="dish-name">姜酒鸡</span><span class="dish-price">168元</span><button class="add-btn" data-name="姜酒鸡" data-price="168">+</button></div>
+            <div class="dish-item"><span class="dish-name">子姜鸭（半只）</span><span class="dish-price">98元</span><button class="add-btn" data-name="子姜鸭（半只）" data-price="98">+</button></div>
+            <div class="dish-item"><span class="dish-name">味蒸鸭（半只）</span><span class="dish-price">98元</span><button class="add-btn" data-name="味蒸鸭（半只）" data-price="98">+</button></div>
+            <div class="dish-item"><span class="dish-name">卤鸭（半只）</span><span class="dish-price">98元</span><button class="add-btn" data-name="卤鸭（半只）" data-price="98">+</button></div>
+        </div>
+        
+        <!-- 九、铁板系列 -->
+        <div class="section-title" style="margin-top:20px">九、铁板系列</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">铁板牛肉</span><span class="dish-price">68元</span><button class="add-btn" data-name="铁板牛肉" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">铁板牛仔骨</span><span class="dish-price">68元</span><button class="add-btn" data-name="铁板牛仔骨" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">铁板鲜鱿</span><span class="dish-price">68元</span><button class="add-btn" data-name="铁板鲜鱿" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">铁板生肠</span><span class="dish-price">58元</span><button class="add-btn" data-name="铁板生肠" data-price="58">+</button></div>
+            <div class="dish-item"><span class="dish-name">铁板猪俐</span><span class="dish-price">58元</span><button class="add-btn" data-name="铁板猪俐" data-price="58">+</button></div>
+        </div>
+        
+        <!-- 十、凉拌系列 -->
+        <div class="section-title" style="margin-top:20px">十、凉拌系列</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">凉拌牛肉</span><span class="dish-price">68元</span><button class="add-btn" data-name="凉拌牛肉" data-price="68">+</button></div>
+            <div class="dish-item"><span class="dish-name">凉拌青瓜鱼皮</span><span class="dish-price">48元</span><button class="add-btn" data-name="凉拌青瓜鱼皮" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">凉拌青瓜莲藕</span><span class="dish-price">38元</span><button class="add-btn" data-name="凉拌青瓜莲藕" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">凉拌皮蛋</span><span class="dish-price">28元</span><button class="add-btn" data-name="凉拌皮蛋" data-price="28">+</button></div>
+        </div>
+        
+        <!-- 十一、主食小吃 -->
+        <div class="section-title" style="margin-top:20px">十一、主食小吃</div>
+        <div class="dish-list">
+            <div class="dish-item"><span class="dish-name">炒面/炒米粉</span><span class="dish-price">28元/份</span><button class="add-btn" data-name="炒面/炒米粉" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">腌/炒老鼠粄</span><span class="dish-price">35元/份</span><button class="add-btn" data-name="腌/炒老鼠粄" data-price="35">+</button></div>
+            <div class="dish-item"><span class="dish-name">炒算盘子</span><span class="dish-price">35元/份</span><button class="add-btn" data-name="炒算盘子" data-price="35">+</button></div>
+            <div class="dish-item"><span class="dish-name">糖焖发粄</span><span class="dish-price">35元/份</span><button class="add-btn" data-name="糖焖发粄" data-price="35">+</button></div>
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">艾青团粄</span>
+                    <span class="dish-price">3元/只</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">数量：</span>
+                    <input type="number" class="spec-input" placeholder="几只" min="1" value="1">
+                    <span class="input-hint">只</span>
+                    <button class="add-btn" data-name="艾青团粄" data-has-spec="true" data-price="3" style="margin-left:10px">+</button>
+                </div>
+            </div>
+            <div class="dish-item has-bracket">
+                <div class="dish-row">
+                    <span class="dish-name">笋粄</span>
+                    <span class="dish-price">3元/条</span>
+                </div>
+                <div class="input-row">
+                    <span class="input-label">数量：</span>
+                    <input type="number" class="spec-input" placeholder="几条" min="1" value="1">
+                    <span class="input-hint">条</span>
+                    <button class="add-btn" data-name="笋粄" data-has-spec="true" data-price="3" style="margin-left:10px">+</button>
+                </div>
+            </div>
+            <div class="dish-item"><span class="dish-name">南瓜饼</span><span class="dish-price">28元/份</span><button class="add-btn" data-name="南瓜饼" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">粗粮饼</span><span class="dish-price">28元/份</span><button class="add-btn" data-name="粗粮饼" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">虾饼</span><span class="dish-price">38元/份</span><button class="add-btn" data-name="虾饼" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">酒糟饼</span><span class="dish-price">28元/份</span><button class="add-btn" data-name="酒糟饼" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">玉米烙</span><span class="dish-price">28元/份</span><button class="add-btn" data-name="玉米烙" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">牛肉煮面粉粄</span><span class="dish-price">48元/份</span><button class="add-btn" data-name="牛肉煮面粉粄" data-price="48">+</button></div>
+            <div class="dish-item"><span class="dish-name">荷包蛋榨菜煮面线</span><span class="dish-price">38元/份</span><button class="add-btn" data-name="荷包蛋榨菜煮面线" data-price="38">+</button></div>
+            <div class="dish-item"><span class="dish-name">冰川茄子</span><span class="dish-price">28元/份</span><button class="add-btn" data-name="冰川茄子" data-price="28">+</button></div>
+            <div class="dish-item"><span class="dish-name">豆腐酿韭菜</span><span class="dish-price">25元/份</span><button class="add-btn" data-name="豆腐酿韭菜" data-price="25">+</button></div>
+            <div class="dish-item"><span class="dish-name">牛肉碎腌老鼠粄</span><span class="dish-price">48元/份</span><button class="add-btn" data-name="牛肉碎腌老鼠粄" data-price="48">+</button></div>
+        </div>
+    </div>
+    
+    <!-- 底部购物车栏 -->
+    <div class="cart-bar">
+        <div class="cart-info">
+            <div class="cart-count">已选 <span class="num" id="cartNum">0</span> 道菜</div>
+            <div id="cartListArea"></div>
+            <div class="cart-total">合计：<span class="amount">¥<span id="cartTotal">0</span></span></div>
+        </div>
+        <button class="generate-btn" id="generateBtn" disabled onclick="showOrderModal()">生成订单截图</button>
+    </div>
+    
+    <!-- 数量输入弹窗 -->
+    <div class="modal-overlay" id="quantityModal">
+        <div class="modal">
+            <div class="modal-title">请输入数量</div>
+            <div class="modal-dish-name" id="modalDishName">-</div>
+            <div class="quantity-input">
+                <button class="qty-btn" onclick="changeQty(-1)">−</button>
+                <input type="number" class="qty-display" id="qtyInput" value="1" min="1">
+                <button class="qty-btn" onclick="changeQty(1)">+</button>
+            </div>
+            <button class="modal-btn confirm" onclick="confirmAdd()">确认添加</button>
+            <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+        </div>
+    </div>
+    
+    <!-- 订单截图弹窗 -->
+    <div class="order-modal" id="orderModal">
+        <div class="order-card">
+            <div class="order-header">
+                <h3>点餐订单</h3>
+                <div class="time" id="orderTime"></div>
+            </div>
+            <div class="order-divider"></div>
+            <div id="orderList"></div>
+            <div class="order-divider"></div>
+            <div class="order-footer">
+                <div class="order-total">¥<span id="orderTotalAmount">0</span></div>
+            </div>
+            <div class="order-tips">长按上方卡片截图，发给商家</div>
+        </div>
+        <button class="close-order" onclick="closeOrderModal()">关闭</button>
+    </div>
+    
+    <script>
+        let cart = [];
+        let currentDish = null;
+        let currentSpec = '';
+        
+        // 图片放大功能
+        function openLightbox(src) {
+            document.getElementById('lightboxImg').src = src;
+            document.getElementById('lightbox').classList.add('show');
+        }
+        
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('show');
+        }
+        
+        function loadCart() {
+            const saved = localStorage.getItem('customer_cart');
+            if (saved) {
+                cart = JSON.parse(saved);
+                updateCartUI();
+            } else {
+                updateCartUI();
+            }
+        }
+        
+        function saveCart() {
+            localStorage.setItem('customer_cart', JSON.stringify(cart));
+        }
+        
+        function openQuantityModal(name, price, spec) {
+            currentDish = { name, price, spec };
+            const displayName = spec ? `${name}（${spec}）` : name;
+            document.getElementById('modalDishName').textContent = displayName;
+            document.getElementById('qtyInput').value = 1;
+            document.getElementById('quantityModal').classList.add('show');
+        }
+        
+        function closeModal() {
+            document.getElementById('quantityModal').classList.remove('show');
+            currentDish = null;
+        }
+        
+        function changeQty(delta) {
+            const input = document.getElementById('qtyInput');
+            let val = parseInt(input.value) || 1;
+            val += delta;
+            if (val < 1) val = 1;
+            input.value = val;
+        }
+        
+        function confirmAdd() {
+            const qty = parseInt(document.getElementById('qtyInput').value);
+            if (!qty || qty < 1) {
+                alert('请输入有效的数量');
+                return;
+            }
+            
+            const fullName = currentDish.spec ? `${currentDish.name}（${currentDish.spec}）` : currentDish.name;
+            
+            const existing = cart.find(item => item.name === fullName);
+            if (existing) {
+                existing.qty += qty;
+            } else {
+                cart.push({
+                    name: fullName,
+                    price: currentDish.price,
+                    qty: qty
+                });
+            }
+            
+            saveCart();
+            updateCartUI();
+            closeModal();
+            
+            // 清空输入框
+            if (currentDish.spec) {
+                const btns = document.querySelectorAll('.add-btn');
+                btns.forEach(btn => {
+                    if (btn.dataset.name === currentDish.name && btn.dataset.hasSpec === 'true') {
+                        const input = btn.parentElement.querySelector('.spec-input');
+                        if (input) input.value = '';
+                    }
+                });
+            }
+        }
+        
+        function updateCartUI() {
+            const totalQty = cart.reduce((sum, item) => sum + item.qty,0);
+            const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+            
+            document.getElementById('cartNum').textContent = totalQty;
+            document.getElementById('cartTotal').textContent = totalAmount;
+            
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = cart.length === 0;
+            
+            const listArea = document.getElementById('cartListArea');
+            if (cart.length === 0) {
+                listArea.innerHTML = '<div class="empty-tip">还没有选菜，点几道吧~</div>';
+            } else {
+                let html = '<div class="cart-list">';
+                cart.forEach((item, index) => {
+                    const priceDisplay = item.price === 0 ? '时价' : '¥' + (item.price * item.qty);
+                    html += `
+                        <div class="cart-item">
+                            <span class="cart-item-name">${item.name}</span>
+                            <div class="cart-item-right">
+                                <span>×${item.qty}</span>
+                                <span class="cart-item-price">${priceDisplay}</span>
+                                <span class="remove-btn" onclick="removeItem(${index})">×</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                listArea.innerHTML = html;
+            }
+        }
+        
+        function removeItem(index) {
+            cart.splice(index, 1);
+            saveCart();
+            updateCartUI();
+        }
+        
+        function showOrderModal() {
+            if (cart.length === 0) return;
+            
+            const now = new Date();
+            document.getElementById('orderTime').textContent = 
+                `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            
+            let html = '';
+            let total = 0;
+            cart.forEach(item => {
+                if (item.price > 0) {
+                    total += item.price * item.qty;
+                }
+                const priceDisplay = item.price === 0 ? '时价' : '¥' + (item.price * item.qty);
+                html += `
+                    <div class="order-item">
+                        <span class="order-item-name">${item.name}</span>
+                        <div class="order-item-right">
+                            <span class="order-item-qty">×${item.qty}</span>
+                            <span class="order-item-price">${priceDisplay}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('orderList').innerHTML = html;
+            document.getElementById('orderTotalAmount').textContent = total > 0 ? total : '-';
+            document.getElementById('orderModal').classList.add('show');
+        }
+        
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.remove('show');
+        }
+        
+        function pad(num) {
+            return num < 10 ? '0' + num : num;
+        }
+        
+        // 绑定加菜按钮事件
+        document.querySelectorAll('.add-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const name = btn.dataset.name;
+                const price = parseInt(btn.dataset.price);
+                const hasSpec = btn.dataset.hasSpec === 'true';
+                
+                if (hasSpec) {
+                    // 有规格的菜品，获取输入框的值
+                    const input = btn.parentElement.querySelector('.spec-input');
+                    const spec = input ? input.value.trim() : '';
+                    
+                    if (!spec) {
+                        input.focus();
+                        return;
+                    }
+                    
+                    openQuantityModal(name, price, spec);
+                } else {
+                    openQuantityModal(name, price, '');
+                }
+            });
+        });
+        
+        loadCart();
+        updateCartUI();
+    </script>
+</body>
+</html>
